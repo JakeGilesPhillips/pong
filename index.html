@@ -1,0 +1,177 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>Pong</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
+</head>
+
+<body>
+  <div id="gameDiv"></div>
+</body>
+
+<script>
+  const config = {
+    width: 500,
+    height: 400,
+    type: Phaser.AUTO,
+    parent: 'gameDiv',
+    scale: {
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+    },
+    scene: {
+      create,
+      update,
+    },
+    physics: {
+      default: 'arcade',
+      arcade: {
+        gravity: false,
+        debug: false,
+      },
+    },
+  }
+
+  const game = new Phaser.Game(config);
+
+  function create() {
+    const { width, height } = this.physics.world.bounds;
+
+    // Set initial scores
+    this.playerScore = 0;
+    this.enemyScore = 0;
+
+    // Create game elements
+    this.ball = this.add.rectangle(width / 2, height / 2, 10, 10, 0xffffff);
+    this.enemy = this.add.rectangle(width - 30, height / 2, 10, 80, 0xffffff);
+    this.player = this.add.rectangle(30, height / 2, 10, 80, 0xffffff);
+
+    // Create UI elements
+    this.titleText = this.add.text(width / 2, 30, 'PONG ', { fontSize: '20px' });
+    this.titleText.setOrigin(0.5);
+    this.enemyScoreText = this.add.text(width - 60, 30, '0');
+    this.enemyScoreText.setOrigin(0.0, 0.5);
+    this.playerScoreText = this.add.text(60, 30, '0');
+    this.playerScoreText.setOrigin(1.0, 0.5);
+
+    // Create physics
+    this.physics.add.existing(this.ball);
+    this.physics.add.existing(this.enemy);
+    this.physics.add.existing(this.player);
+
+    // Set colliders
+    this.ball.body.setCollideWorldBounds(true);
+    this.enemy.body.setCollideWorldBounds(true);
+    this.player.body.setCollideWorldBounds(true);
+    this.ball.body.setBounce(1, 1);
+    this.enemy.body.setImmovable(true);
+    this.player.body.setImmovable(true);
+    this.physics.add.collider(this.ball, this.enemy, () => this.enemyCollide = true);
+    this.physics.add.collider(this.ball, this.player, () => this.playerCollide = true);
+
+    // Set initial velocity
+    this.ballSpeedX = 200;
+    this.ballSpeedY = Math.random() * 60 - 30;
+    this.ballDirectionX = -1;
+    this.ball.body.setVelocity(this.ballSpeedX * this.ballDirectionX, this.ballSpeedY);
+
+    // Set colliders
+    this.enemyCollide = false;
+    this.playerCollide = false;
+
+    // Set inputs
+    this.up = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+    this.down = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
+  }
+
+  function update() {
+    // Move paddles
+    movePlayer(this);
+    moveEnemy(this);
+
+    // Check collision
+    checkPaddleCollide(this);
+    checkWallCollide(this);
+
+    // Update UI
+    updateUI(this);
+
+    // Reset colliders
+    this.enemyCollide = false;
+    this.playerCollide = false;
+  }
+
+  function movePlayer(scene) {
+    // Move player
+    if (scene.up.isDown) scene.player.body.setVelocityY(-300);
+    else if (scene.down.isDown) scene.player.body.setVelocityY(300);
+    else scene.player.body.setVelocityY(0);
+  }
+
+  function moveEnemy(scene) {
+    // Move enemy
+    if (scene.ball.x > scene.physics.world.bounds.width / 6) {
+      // Get the distance from edge of paddle to center
+      const direction = scene.ball.y > scene.enemy.y ? 1 : -2;
+      const distance = Math.abs(scene.enemy.y - scene.ball.y) / 40;
+      const speed = Math.min(distance * 180, 180);
+
+      // Scale enemy speed as it gets toward ball (stops jittering)
+      scene.enemy.body.setVelocityY(speed * direction);
+    }
+  }
+
+  function checkPaddleCollide(scene) {
+    // Check if ball collided with paddle
+    if (scene.playerCollide || scene.enemyCollide) {
+      // Calculate X offset
+      const entity = scene.playerCollide ? scene.player : scene.enemy;
+      const distance = ((entity.y - scene.ball.y) / 40) * -1;
+      scene.ballSpeedY = distance * scene.ballSpeedX;
+
+      // Calculate Y offset
+      scene.ballSpeedX = Math.min(scene.ballSpeedX * 1.05, 800);
+      scene.ballDirectionX = scene.ballDirectionX * -1;
+
+      // Update ball velocity
+      scene.ball.body.setVelocity(
+        scene.ballSpeedX * scene.ballDirectionX,
+        scene.ballSpeedY,
+      );
+    }
+  }
+
+  function checkWallCollide(scene) {
+    const { width, height } = scene.physics.world.bounds;
+
+    // Skip if paddle collision
+    if (scene.playerCollide || scene.enemyCollide) return;
+
+    // Check if ball collided with wall
+    if (scene.ball.body.onWall()) {
+      // Update score
+      if (scene.ball.body.x < width / 2) scene.enemyScore += 1;
+      else scene.playerScore += 1;
+
+      // Reset ball
+      scene.ballSpeedX = 200;
+      scene.ballSpeedY = Math.random() * 60 - 30;
+      scene.ballDirectionX = -1;
+      scene.ball.setPosition(width / 2, height / 2);
+
+      // Update ball velocity
+      scene.ball.body.setVelocity(
+        scene.ballSpeedX * scene.ballDirectionX,
+        scene.ballSpeedY,
+      );
+    }
+  }
+
+  function updateUI(scene) {
+    // Update UI
+    scene.enemyScoreText.setText(scene.enemyScore.toString());
+    scene.playerScoreText.setText(scene.playerScore.toString());
+  }
+</script>
+
+</html>
